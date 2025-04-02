@@ -1,7 +1,5 @@
-from threading import Thread
+import threading
 import socket # For socket communication
-from datetime import datetime # For timestamping messages
-
 
 class Server:
     def __init__(self, host, port):
@@ -11,7 +9,8 @@ class Server:
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((self.host, self.port))
 
-        self.clients = []
+        self.clients = {} # {Username: socket}
+        self.lock = threading.Lock() # Lock for thread-safe access to clients list
 
 
     def start(self):
@@ -23,7 +22,7 @@ class Server:
             while True:
                 connection_socket, addr = self.server_socket.accept()
                 print(f"Connection from {addr} has been established.")
-                thread = Thread(target=self.handle_client, args=(connection_socket,))
+                thread = threading.Thread(target=self.handle_client, args=(connection_socket,))
                 thread.start() 
 
         except KeyboardInterrupt:
@@ -33,34 +32,60 @@ class Server:
             print(f"Error: {e}")
 
         finally:
+            for client_socket in self.clients.values():
+                client_socket.close()
             self.server_socket.close()
+            print("Server resources cleaned up.")
 
     def pass_message(self, message, sender_socket):
         ''' Send messages to everyone but the sender '''
-        for client in self.clients:
-            if client != sender_socket:
-                client.send(message.encode())
+        with self.lock:
+            for username, client_socket in self.clients.items():
+                if client_socket != sender_socket:
+                    client_socket.send(message.encode())
 
 
     def handle_client(self, connection_socket):
         ''' Handle communication with one client '''
+        username = connection_socket.recv(1024).decode()
+        print(f"{username} connected.")
+
+        
+        self.clients[username] = connection_socket
+
+        # Join message
+        join_message = f"{username} has joined the chat."
+        self.pass_message(join_message, connection_socket)
+
         while True:
             try:
                 message = connection_socket.recv(1024).decode()
                 if not message:
                     break
                 print(f"Received message: {message}")
-                self.pass_message(message)
+                self.pass_message(message, connection_socket)
+
+            except ConnectionResetError:
+                print(f"{username} disconnected.")
+                self.remove_client(username)
+                break
             except Exception as e:
                 print(f"Error: {e}")
                 break
 
         connection_socket.close()
-        print("Connection closed.")
+        # print("Connection closed.")
 
-    def remove_client(self, connection_socket):
+    def remove_client(self, username):
         ''' Remove a client from the list '''
-        pass
+        with self.lock:
+            if username in self.clients:
+                self.clients.pop(username)
+                
+
+        # Leave message
+        leave_message = f"{username} has left the chat."
+        self.pass_message(leave_message, username)
 
 
 if __name__ == "__main__":
