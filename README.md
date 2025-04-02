@@ -59,10 +59,6 @@ __close(self):__ Clean up the resources used and close the application.
 
 ## Running the Application
 1. Start the server:
-   '''
-   python server.py
-   '''
-2. Start the client:
-   '''
-   python groupchat.py
-   '''
+   > python server.py
+3. Start the client:
+   > python groupchat.py
