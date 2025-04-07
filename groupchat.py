@@ -165,10 +165,7 @@ if __name__ == "__main__":
 
 ''' 
 Levi Klamer & Ryan Langren
-Total Time Spent: 5 hours
-Main Issues: 
-Keyboard Interrupt doesn't work in the server
-No testing has been done outside local
+Total Time Spent: 7 hours
 
 References:
 https://docs.python.org/3/library/tk.html
