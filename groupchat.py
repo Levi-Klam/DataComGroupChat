@@ -7,7 +7,7 @@ from tkinter import scrolledtext # Found this for scrolling text area
 class App:
     def __init__(self, master):
         self.master = master
-        master.title("Socket Reader")
+        master.title("Group Chat")
 
         self.socket = None
         self.username = None
@@ -77,11 +77,16 @@ class App:
                 data = self.socket.recv(1024)
                 if not data:
                     break
-                self.data_queue.put(data.decode())
+                message = data.decode()
+                self.data_queue.put(message)
+
+                if message == "Server disconnected. Closing app in 5 seconds.":
+                    self.master.after(5000, self.close)
+                    break
 
         except socket.error as e:
             if e.errno == 10054:  # If server is suddenly disconnected
-                self.data_queue.put("Server Disconnected. Closing app in 5 seconds.")
+                self.data_queue.put("Server disconnected. Closing app in 5 seconds.")
                 self.master.after(5000, self.close)  # Close the app in 5 seconds. This is the first time I've used the after() method
             else:
                 self.data_queue.put(f"Error: {e}")
@@ -93,7 +98,6 @@ class App:
         # Chat display
         self.chat_display = scrolledtext.ScrolledText(self.master, wrap=tk.WORD, height=15)
         self.chat_display.pack(padx=10, pady=5, expand=True, fill='both')
-        self.chat_display.config(state=tk.DISABLED)  # Chat should be read-only
 
         # Input area
         input_area = tk.Frame(self.master)
@@ -131,17 +135,24 @@ class App:
         message = self.message_entry.get()  # Get the text from the input field
         if message.strip():  # Check if the message is not empty
             formatted_message = f"{self.username}: {message}"
-            try:
-                self.socket.sendall(formatted_message.encode())  # Send to server
-                self.update_chat(formatted_message)  # Update chat display
-                self.message_entry.delete(0, tk.END)  # Clear the input field
-            except Exception as e:
-                self.update_chat(f"Error sending message: {e}")
-                print(f"Error sending: {e}")
+            self.socket.sendall(formatted_message.encode())  # Send to server
+            self.update_chat(formatted_message)  # Update chat display
+            self.message_entry.delete(0, tk.END)  # Clear the input field
 
     def close(self):
         self.running = False
+
+        """ 
+        This is a really stupid solution. I was getting an error because it was trying to send this 
+        message to the server after it was closed. Now, it just gives up after the error.
+        """
+        try:
+            disconnect_message = " "
+            self.socket.sendall(disconnect_message.encode())
+        except:
+            pass
         self.master.destroy()
+
 
 
 if __name__ == "__main__":

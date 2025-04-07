@@ -1,4 +1,5 @@
 import threading
+import sys # this is used to clean threads up upon server shutdown
 import socket # For socket communication
 
 class Server:
@@ -23,27 +24,41 @@ class Server:
                 connection_socket, addr = self.server_socket.accept()
                 print(f"Connection from {addr} has been established.")
                 thread = threading.Thread(target=self.handle_client, args=(connection_socket,))
+                thread.daemon = True
                 thread.start() 
 
         except KeyboardInterrupt:
-            print("Server shutting down...")
+            print("\nServer shutting down...")
 
         except Exception as e:
             print(f"Error: {e}")
 
         finally:
-            for client_socket in self.clients.values():
-                client_socket.close()
+            shutdown_message = "Server disconnected. Closing app in 5 seconds."
+            with self.lock:
+                for username, client_socket in self.clients.items():
+                    try:
+                        client_socket.send(shutdown_message.encode())  # Notify the client
+                    except Exception as e:
+                        print(f"Error sending shutdown message to {username}: {e}")
+                    finally:
+                        client_socket.close()
+                
+                self.clients.clear()
+            
             self.server_socket.close()
-            print("Server resources cleaned up.")
+            print("Server resources cleaned.")
+            sys.exit(0)
 
     def pass_message(self, message, sender_socket):
         ''' Send messages to everyone but the sender '''
         with self.lock:
             for username, client_socket in self.clients.items():
-                if client_socket != sender_socket:
-                    client_socket.send(message.encode())
-
+                try:
+                    if client_socket != sender_socket:
+                        client_socket.send(message.encode())
+                except:
+                    self.remove_client(username)
 
     def handle_client(self, connection_socket):
         ''' Handle communication with one client '''
@@ -62,7 +77,12 @@ class Server:
                 message = connection_socket.recv(1024).decode()
                 if not message:
                     break
-                print(f"Received message: {message}")
+                if message == " ":
+                    print(f"{username} disconnected.")
+                    self.remove_client(username)
+                else:
+                    print(f"Received message: {message}")
+
                 self.pass_message(message, connection_socket)
 
             except ConnectionResetError:
@@ -82,7 +102,6 @@ class Server:
             if username in self.clients:
                 self.clients.pop(username)
                 
-
         # Leave message
         leave_message = f"{username} has left the chat."
         self.pass_message(leave_message, username)
@@ -93,6 +112,7 @@ if __name__ == "__main__":
     port = 5000        # Replace with your port
     server = Server(host, port)
     server.start()
+
 
 
 
