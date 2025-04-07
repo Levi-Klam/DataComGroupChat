@@ -94,7 +94,6 @@ class Server:
                 break
 
         connection_socket.close()
-        # print("Connection closed.")
 
     def remove_client(self, username):
         ''' Remove a client from the list '''
@@ -112,20 +111,3 @@ if __name__ == "__main__":
     port = 5000        # Replace with your port
     server = Server(host, port)
     server.start()
-
-
-
-
-# Provided starting server code 
-# def handleClient(sock):
-#   # Handle communication with one client
-
-#   # Remember to close the socket when done
-#   sock.close()
-
-# server_socket.listen(___)
-# while True:
-#   connection_socket, _ = server_socket.accept()
-#   t = Thread(target = handleClient, args=(connection_socket,))
-#   t.start()
-# server_socket.close()
